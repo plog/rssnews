@@ -21,7 +21,7 @@ from urllib.parse import urlparse
 load_dotenv()
 DATABASE= 'articles.db'
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key="4365JHJ456HJ46HJ4H6JK45H6456HJK5H6")
+app.add_middleware(SessionMiddleware, secret_key=os.getenv('SECRET'))
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static") 
 
