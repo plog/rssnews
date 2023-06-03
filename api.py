@@ -197,7 +197,7 @@ def api_feed(request: Request):
         print('\n',articles_nbr,feed)
         print(from_cache)
         print(50*'-')
-        for ent in rss.entries:
+        for ent in rss.entries[:5]:
             image = ''
             description = ''
             try:
@@ -231,7 +231,6 @@ def api_feed(request: Request):
             #result = client.collection("news").create(article)
             print(res)
     return res
-
 
 app.include_router(api, prefix="/api") 
 

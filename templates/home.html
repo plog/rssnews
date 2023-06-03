@@ -6,10 +6,10 @@
     {% for article in articles%}
 
     <div class="headline fill m-2 p-2 flex-fill">
-        <div style="max-width: 250px;">
+        <div style="max-width: 100%;">
             <img src="{{article.image}}" class="img-fluid mb-3 w-100" onerror="this.src='/static/no-img.png';">
             <p>{{article.paper}} - <strong>{{article.published}}</strong></p>
-            <h2><a href="{{article.link}}">{{article.title}}</a></h2>
+            <h2><a href="{{article.link}}" target="_blank">{{article.title}}</a></h2>
             <p class="desc">{{article.description}}</p>
         </div>        
     </div>
