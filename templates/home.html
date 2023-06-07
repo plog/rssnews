@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1>Press Review</h1>
+<h1>Press Review {{date}}</h1>
+<div id="flagsContainer"></div>
 <div class="d-flex flex-wrap">
     {% for article in articles%}
 
@@ -13,22 +14,37 @@
             <p class="desc">{{article.description}}</p>
         </div>        
     </div>
-<!--
-<div class="row w-25">
-    <div class="col-5">
-        <img src="{{article.image}}" class="img-fluid">
-    </div>
-    <div class="col-7">
-        <h2><a href="{{article.link}}">{{article.title}}</a></h2>
-        <p>{{article.description}}</p>
-    </div>
-</div>
-
--->
-
 
 {% endfor%}
 </div>
+
+<script>
+// Array of language objects
+var languages = [
+  { name: "en", flag: "/static/flags/gb.svg", link: "https://example.com/english" },
+  { name: "fr", flag: "/static/flags/fr.svg", link: "https://example.com/spanish" },
+  // Add more languages here...
+];
+
+function generateLanguageFlags(languages) {
+  var flagsHTML = "";
+
+  for (var i = 0; i < languages.length; i++) {
+    var language = languages[i];
+    var flagHTML = '<a href="' + language.link + '">';
+    flagHTML += '<img class="flags" width="40" src="' + language.flag + '" alt="' + language.name + '">';
+    flagHTML += '</a>';
+
+    flagsHTML += flagHTML;
+  }
+
+  return flagsHTML;
+}
+var container = document.getElementById("flagsContainer");
+container.innerHTML = generateLanguageFlags(languages);
+
+</script>
+
 
 {% endblock %}
 

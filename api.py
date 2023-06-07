@@ -12,7 +12,7 @@ import proxies.deeplcom as deeplcom
 import sqlite3
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
-import proxies.deeplcom as deeplcom
+from utils import *
 
 DATABASE= 'articles.db'
 load_dotenv()
@@ -65,84 +65,9 @@ rss_feed = [
     "https://services.lesechos.fr/rss/les-echos-monde.xml"
 ]
 
-def create_table():
-    conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()
-    query = '''CREATE TABLE IF NOT EXISTS articles (
-               id INTEGER PRIMARY KEY AUTOINCREMENT,
-               paper VARCHAR(255),
-               title VARCHAR(255),
-               image VARCHAR(255),
-               description TEXT,
-               link TEXT,
-               published DATETIME,
-               CONSTRAINT unique_title UNIQUE (link,image,title)
-    )'''
-    c.execute(query)
-    query = '''CREATE TABLE IF NOT EXISTS translations (
-               id INTEGER PRIMARY KEY AUTOINCREMENT,
-               article_id INTEGER,
-               language_code VARCHAR(5),
-               title VARCHAR(255),
-               description TEXT,
-               FOREIGN KEY (article_id) REFERENCES articles(id)
-    )'''
-    c.execute(query)    
-    conn.commit()
-    conn.close()
-
-def insert_article(article):
-    conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()
-    query = '''INSERT INTO articles (paper, title, image, description, link, published)
-               VALUES (?, ?, ?, ?, ?, ?)'''
-    values = (
-        article['paper'],
-        article['title'],
-        article['image'],
-        article['description'],
-        article['link'],
-        article['published']
-    )
-    try:
-        c.execute(query, values)
-        conn.commit()
-    except sqlite3.IntegrityError:
-        pass
-    conn.close()
-
-def insert_translation(article_id,title,description,lang):
-    trans = deeplcom.Deepl()
-    conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()
-    query = '''DELETE FROM translations WHERE article_id = ?'''
-    c.execute(query, (int(article_id),))
-    conn.commit()
-    query = '''INSERT INTO translations (article_id,title,description,language_code) VALUES (?,?,?,?)'''
-    values = (
-        article_id,
-        trans.translate(title,'',lang,True)[0],
-        trans.translate(description,'',lang,True)[0],
-        lang,)
-    try:
-        c.execute(query, values)
-        conn.commit()
-        conn.close()
-        return values        
-    except sqlite3.IntegrityError:
-        pass
-    conn.close()
-    return None
-
-def truncate_string(text, max_length=200):
-    if len(text) <= max_length:
-        return text
-    else:
-        truncated_text = text[:max_length].rsplit(' ', 1)[0]
-        return truncated_text + '...'
-
 @api.get('/translate/{lang}')
 def api_translate(request: Request, lang: str):
+    res=[]
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()    
     c.execute('''
@@ -161,8 +86,8 @@ def api_translate(request: Request, lang: str):
         title       = row['t_title']
         description = row['t_description']
         pubdate = dateutil.parser.parse(row['published'])
+        print(row['article_id'],row['a_title'],row['a_description'],lang)
         if row['translation_id'] is None:
-            print('Translating: ',row['article_id'],date.today(),lang)
             value       = insert_translation(row['article_id'],row['a_title'],row['a_description'],lang)
             title       = value[1]
             description = value[2]
@@ -173,8 +98,8 @@ def api_translate(request: Request, lang: str):
             "link"       : row['link'],
             "description": description,
             "published": pubdate.strftime("%d %b %Y %H:%M"),
-        }           
-    res=[]
+        }
+        res.append(article)     
     conn.close()
     return res
 
@@ -194,10 +119,8 @@ def api_feed(request: Request):
         rss_xml = response.content.decode(response.apparent_encoding)
         rss = feedparser.parse(rss_xml)
         articles_nbr = len(rss.entries)
-        print('\n',articles_nbr,feed)
-        print(from_cache)
-        print(50*'-')
-        for ent in rss.entries[:5]:
+        print(str(from_cache).ljust(6), f'{articles_nbr:03d}',feed)
+        for ent in rss.entries:
             image = ''
             description = ''
             try:
@@ -220,7 +143,7 @@ def api_feed(request: Request):
             pubdate = dateutil.parser.parse(ent.published)
             article = {
                 "paper": paper,
-                "title": ent.title,
+                "title": truncate_string(ent.title,100),
                 "image": image,
                 "description": truncate_string(soup.get_text()),
                 "link": ent.link,
@@ -229,7 +152,7 @@ def api_feed(request: Request):
             insert_article(article)
             res.append(article)
             #result = client.collection("news").create(article)
-            print(res)
+            # print(res)
     return res
 
 app.include_router(api, prefix="/api") 

@@ -16,7 +16,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 from starlette.responses import Response,JSONResponse
 from urllib.parse import urlparse
-
+from utils import *
 
 load_dotenv()
 DATABASE= 'articles.db'
@@ -33,31 +33,38 @@ session = CachedSession(cache_req, backend='filesystem',allowable_methods=['GET'
 def api_home(request: Request, lang:str):
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()    
-    c.execute('''
-        SELECT a.id, t.id, a.paper, t.title t_title, a.image, a.link, 
-                t.description t_description, a.published,
-                a.description a_description,
-                a.title a_title
-        FROM articles a
-        LEFT JOIN translations t ON a.id = t.article_id
-        WHERE strftime('%Y-%m-%d', published) = date(?)
-        AND (t.language_code = ? OR t.language_code ISNULL)''', (date.today(),lang,))  
+    sql = "SELECT * FROM articles WHERE strftime('%Y-%m-%d', published) = date(?)"
+    c.execute(sql, (date.today(),))  
+    print(sql, date.today(),lang)
     columns = [column[0] for column in c.description]  
     rows = c.fetchall()
     res = []
     for row in rows:
         row = dict(zip(columns, row))
+        sql = "SELECT title,description FROM translations WHERE article_id=? AND language_code=?"
+        c.execute(sql, (row['id'],lang,))  
+        translation = c.fetchone()
         pubdate = dateutil.parser.parse(row['published'])
+        title       = row['title'] 
+        description = row['description']   
+        if translation is not None:
+            title       = translation[0]
+            description = translation[1]                     
         article = {
                 "paper": row['paper'].capitalize(),
-                "title": row['t_title'],
+                "title": truncate_string(title,100),
                 "image": row['image'],
-                "description": row['t_description'],
+                "description": description,
                 "link": row['link'],
                 "published": pubdate.strftime("%d %b %Y"),
             }
+        # print(article)
         res.append(article) 
-    context = {"request" : request, 'articles': res}   
+    context = {
+        'request' : request, 
+        'articles': res,
+        'date': date.today().strftime("%d %b %Y"),
+    }   
     return templates.TemplateResponse("home.html", context=context, media_type="text/html")
 
 # All requests   
