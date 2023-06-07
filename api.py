@@ -113,6 +113,7 @@ def api_feed(request: Request):
         except Exception as exc:
             print('Error:', feed)
             from_cache = exc
+        if not response:
             continue
         rss_xml = response.content.decode(response.apparent_encoding)
         rss = feedparser.parse(rss_xml)
