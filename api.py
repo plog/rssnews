@@ -107,13 +107,14 @@ def api_feed(request: Request):
     titles = []
     for feed in rss_feed:
         from_cache = ''
+        response = None
         try:
             response = session.get(feed, timeout=10)
             from_cache = response.from_cache
         except Exception as exc:
             print('Error:', feed)
             from_cache = exc
-        if not response:
+        if response == None:
             continue
         rss_xml = response.content.decode(response.apparent_encoding)
         rss = feedparser.parse(rss_xml)
