@@ -1,8 +1,22 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1>Press Review {{date}}</h1>
-<div id="flagsContainer"></div>
+<nav class="navbar navbar-expand-sm navbar-light bg-light fixed-top">
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarTogglerDemo03" aria-controls="navbarTogglerDemo03" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+  <a class="navbar-brand" href="#">{{date}}</a>
+  <!--div id="flagsContainer"></div-->
+  <div class="collapse navbar-collapse" id="navbarTogglerDemo03">
+    <ul class="navbar-nav mt-0" id="flagsContainer">
+      <!--
+      <li class="nav-item active"><a class="nav-link" href="#">Home <span class="sr-only">(current)</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="#">Link</a></li>
+      <li class="nav-item"><a class="nav-link disabled" href="#">Disabled</a></li>
+      -->
+    </ul>
+  </div>
+</nav>
 <div class="d-flex flex-wrap">
     {% for article in articles%}
 
@@ -32,9 +46,11 @@ function generateLanguageFlags(languages) {
 
   for (var i = 0; i < languages.length; i++) {
     var language = languages[i];
-    var flagHTML = '<a href="/' + language.name + '">';
+    var flagHTML = '<li class="nav-item">';
+    flagHTML += '<a href="/' + language.name + '">';
     flagHTML += '<img class="flags" src="/static/flags/' + language.name + '.png" alt="' + language.name + '">';
     flagHTML += '</a>';
+    flagHTML += '</li>';
 
     flagsHTML += flagHTML;
   }

@@ -32,8 +32,6 @@ rss_feed = [
     # United Kingdom
     "https://www.theguardian.com/world/rss",
     "https://www.thetimes.co.uk/rss",
-    "https://www.dailymail.co.uk/articles.rss",
-    "https://www.independent.co.uk/rss",
     "https://www.ft.com/news-feed?format=rss",
     
     # Canada

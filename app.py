@@ -52,7 +52,7 @@ def api_home(request: Request, lang:str):
             description = translation[1]                     
         article = {
                 "paper": row['paper'].capitalize(),
-                "title": truncate_string(title,100),
+                "title": truncate_string(title,150),
                 "image": row['image'],
                 "description": description,
                 "link": row['link'],
