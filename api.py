@@ -70,27 +70,24 @@ def api_translate(request: Request, lang: str):
     res=[]
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()    
-    c.execute('''
-        SELECT a.id article_id, t.id translation_id, a.paper, t.title t_title, a.image, a.link, 
-                t.description t_description, a.published,
-                a.description a_description,
-                a.title a_title
-        FROM articles a
-        LEFT JOIN translations t ON a.id = t.article_id
-        WHERE strftime('%Y-%m-%d', published) = date(?)
-        AND (t.language_code = ? OR t.language_code ISNULL)''', (date.today(),lang,))
+    c.execute("SELECT * FROM articles WHERE strftime('%Y-%m-%d', published) = date(?)", (date.today(),))
     rows = c.fetchall()
     columns = [column[0] for column in c.description]  
     for row in rows:
         row = dict(zip(columns, row))
-        title       = row['t_title']
-        description = row['t_description']
+        sql = "SELECT title,description FROM translations WHERE article_id=? AND language_code=?"
+        c.execute(sql, (row['id'],lang,))  
+        translation = c.fetchone()
+        if translation:
+            continue
+        id = row['id']
+        title       = row['title']
+        description = row['description']
         pubdate = dateutil.parser.parse(row['published'])
-        print(row['article_id'],row['a_title'],row['a_description'],lang)
-        if row['translation_id'] is None:
-            value       = insert_translation(row['article_id'],row['a_title'],row['a_description'],lang)
-            title       = value[1]
-            description = value[2]
+        print(id,title,description,lang)
+        value       = insert_translation(id,title,description,lang)
+        title       = value[1]
+        description = value[2]
         article = {
             "paper"      : row['paper'],
             "title"      : title,

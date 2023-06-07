@@ -21,9 +21,10 @@
 <script>
 // Array of language objects
 var languages = [
-  { name: "en", flag: "/static/flags/gb.svg", link: "https://example.com/english" },
-  { name: "fr", flag: "/static/flags/fr.svg", link: "https://example.com/spanish" },
-  // Add more languages here...
+  { name: "en",},
+  { name: "fr",},
+  { name: "id",},
+
 ];
 
 function generateLanguageFlags(languages) {
@@ -31,8 +32,8 @@ function generateLanguageFlags(languages) {
 
   for (var i = 0; i < languages.length; i++) {
     var language = languages[i];
-    var flagHTML = '<a href="' + language.link + '">';
-    flagHTML += '<img class="flags" width="40" src="' + language.flag + '" alt="' + language.name + '">';
+    var flagHTML = '<a href="/' + language.name + '">';
+    flagHTML += '<img class="flags" src="/static/flags/' + language.name + '.png" alt="' + language.name + '">';
     flagHTML += '</a>';
 
     flagsHTML += flagHTML;
