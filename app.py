@@ -6,6 +6,7 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import date
 import dateutil.parser
+from slugify import slugify
 from dotenv import load_dotenv
 from requests_cache import CachedSession
 from fastapi import FastAPI,Depends, status, Form, APIRouter,HTTPException, Depends
@@ -33,9 +34,10 @@ session = CachedSession(cache_req, backend='filesystem',allowable_methods=['GET'
 def api_home(request: Request, lang:str):
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()    
-    sql = "SELECT * FROM articles WHERE strftime('%Y-%m-%d', published) = date(?)"
-    c.execute(sql, (date.today(),))  
-    print(sql, date.today(),lang)
+    sql = "SELECT * FROM articles WHERE date(published) >= datetime('now','-24 hour')"
+    # c.execute(sql, (date.today(),))  
+    c.execute(sql)
+    # print(sql, date.today(),lang)
     columns = [column[0] for column in c.description]  
     rows = c.fetchall()
     res = []
@@ -52,11 +54,11 @@ def api_home(request: Request, lang:str):
             description = translation[1]                     
         article = {
                 "paper": row['paper'].capitalize(),
-                "title": truncate_string(title,150),
+                "title": truncate_string(title,200),
                 "image": row['image'],
                 "description": description,
                 "link": row['link'],
-                "published": pubdate.strftime("%d %b %Y"),
+                "published": pubdate.strftime("%d %b %Y %H:%M"),
             }
         # print(article)
         res.append(article) 

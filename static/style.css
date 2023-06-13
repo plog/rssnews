@@ -5,14 +5,14 @@ body {
 
 body {
   background-color: #f6f5ee;
-  font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 h1 {
   font-size: 2rem;
   padding-top: inherit;
   font-weight: 900;
-  font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 .h2,
@@ -57,9 +57,11 @@ a {
   background-position: center;
   background-color: #e6dece;
 }
+
 .bg-light {
-  background-color: #dcd7cc!important;
+  background-color: #dcd7cc !important;
 }
+
 .flex-grow {
   flex: 1 0 auto;
 }
@@ -67,19 +69,107 @@ a {
 .navbar .navbar-collapse {
   text-align: center;
 }
+
 .flags {
   padding-right: 10px;
   width: 30px;
 }
-@media (max-width:421px){
+
+h2.top-left a {
+  position: absolute;
+  top: 8px;
+  left: 16px;
+}
+
+@media (max-width:421px) {
   h1 {
     font-size: 1.3rem;
     font-weight: 900;
     font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
-  }  
+  }
+
   .headline img {
     max-height: 100px;
     width: 100%;
     object-fit: cover;
+  }
 }
+
+.subpic1 {
+  color: white;
+  background-color: black;
+  padding: 0px;
+  padding-left: 7px;
+  padding-top: 5px;
+  padding-bottom: 0px;
+  margin: 0;
+  font-size: 65%;
+  font-weight: 400;
+}
+
+.subpic2 {
+  color: white;
+  background-color: black;
+  padding: 0px;
+  padding-left: 7px;
+  padding-bottom: 3px;
+  font-weight: bold;
+}
+
+.txtwhite {
+  color: white;
+  text-shadow: rgb(56 53 1) 1px 0px 2px;
+}
+.txtwhite:hover {
+  color: #e6dece;
+  text-shadow: rgb(56 53 1) 1px 0px 2px;
+  text-decoration: none;
+}
+.txtblack {
+  color: black;
+  text-shadow: rgb(255, 255, 255) 1px 1px 1px;
+}
+.txtblack:hover {
+  color: #e6dece;
+  text-shadow: rgb(56 53 1) 1px 0px 2px;
+  text-decoration: none;
+}
+
+.wp-caption {
+  position: relative;
+  padding: 0;
+  margin: 0;
+}
+
+.wp-caption img {
+  display: block;
+  max-width: 100%;
+  height: 135px;
+  opacity: 0.5;
+}
+
+.wp-caption:after {
+  content: "";
+  position: absolute;
+  display: block;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0) linear-gradient(to bottom, rgba(0, 0, 0, 0) 0px, rgba(0, 0, 0, 0.6) 100%) repeat 0 0;
+  z-index: 1;
+}
+.wp-caption-text {
+  display: block;
+  position: absolute;
+  width: 100%;
+  top: 8px;
+  left: -5px;
+  padding: 1em;
+  padding-bottom: 0;
+  padding-top: 0;
+  font-weight: 400;
+  line-height: 1.1;
+  z-index: 10;
+  box-sizing: border-box;
 }

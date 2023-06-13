@@ -9,22 +9,27 @@
   <!--div id="flagsContainer"></div-->
   <div class="collapse navbar-collapse" id="navbarTogglerDemo03">
     <ul class="navbar-nav mt-0" id="flagsContainer">
-      <!--
-      <li class="nav-item active"><a class="nav-link" href="#">Home <span class="sr-only">(current)</span></a></li>
-      <li class="nav-item"><a class="nav-link" href="#">Link</a></li>
-      <li class="nav-item"><a class="nav-link disabled" href="#">Disabled</a></li>
-      -->
     </ul>
   </div>
 </nav>
-<div class="d-flex flex-wrap">
+
+<div class="d-flex flex-wrap" style="margin-top: 6rem">
     {% for article in articles%}
 
     <div class="headline fill m-2 p-2 flex-fill">
-        <div style="max-width: 100%;">
-            <img src="{{article.image}}" class="img-fluid mb-3 w-100" onerror="this.src='/static/no-img.png';">
-            <p>{{article.paper}} - <strong>{{article.published}}</strong></p>
-            <h2><a href="{{article.link}}" target="_blank">{{article.title}}</a></h2>
+        <div style="max-width: 100%;position: relative;">
+
+          <figure class="wp-caption">
+            <img class="demo" id="{{article.image}}" alt="Image"  onerror="this.src='/static/no-img.png';"/>
+            <figcaption class="wp-caption-text" id="txt_{{article.image}}">
+              <a href="{{article.link}}">{{article.title}}</a>
+            </figcaption>
+          </figure>
+
+            <!--img src="{{article.image}}" class="img-fluid mb-3 w-100" onerror="this.src='/static/no-img.png';"-->
+            <!--h2 class="top-left"><a href="{{article.link}}" target="_blank">{{article.title}}</a></h2-->
+            <p class="subpic1">{{article.published}}</p>
+            <p class="subpic2">{{article.paper}}</p>
             <p class="desc">{{article.description}}</p>
         </div>        
     </div>

@@ -1,9 +1,11 @@
 import os
+import shutil
 from app import app, Request,JSONResponse,APIRouter,HTTPException, Depends
 from datetime import datetime
 from datetime import timedelta
 from datetime import date
 from requests_cache import CachedSession
+import requests
 import pprint
 import dateutil.parser
 import feedparser
@@ -68,7 +70,7 @@ def api_translate(request: Request, lang: str):
     res=[]
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()    
-    c.execute("SELECT * FROM articles WHERE strftime('%Y-%m-%d', published) = date(?)", (date.today(),))
+    c.execute("SELECT * FROM articles WHERE date(published) >= datetime('now','-24 hour')")
     rows = c.fetchall()
     columns = [column[0] for column in c.description]  
     for row in rows:
@@ -139,15 +141,22 @@ def api_feed(request: Request):
             soup    = BeautifulSoup(description)
             paper   = urlparse(feed).netloc.replace('www.','').replace('rss.','')
             pubdate = dateutil.parser.parse(ent.published)
+
+            image_file = os.path.basename(image).split("?")
+            image_path = 'static/images/'+image_file[0]
+            if not os.path.isfile(image_path):
+                img_res = requests.get(image, stream = True)
+                with open(image_path,'wb') as f:
+                    shutil.copyfileobj(img_res.raw, f)
             article = {
                 "paper": paper,
                 "title": truncate_string(ent.title,100),
-                "image": image,
+                "image": image_file[0],
                 "description": truncate_string(soup.get_text()),
                 "link": ent.link,
                 "published": pubdate,
             }
-            insert_article(article)
+            insert_article(article)           
             res.append(article)
             #result = client.collection("news").create(article)
             # print(res)
