@@ -22,9 +22,16 @@ pp = pprint.PrettyPrinter(indent=4,width=120)
 cache_req = os.getenv('REQUEST_CACHE')
 session = CachedSession(cache_req, backend='filesystem',allowable_methods=['GET', 'POST'],expire_after=timedelta(hours=1))
 api = APIRouter()
+allowed_ips = {"127.0.0.1", "::1"}
+
+def check_localhost(request: Request):
+    client_host = request.client.host
+    if client_host != "127.0.0.1" and client_host != "::1":
+        raise HTTPException(status_code=403, detail="Access restricted to localhost")
 
 @api.get('/translate/{lang}')
 def api_translate(request: Request, lang: str):
+    check_localhost(request)
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
     res=[]
@@ -60,6 +67,7 @@ def api_translate(request: Request, lang: str):
 
 @api.get('/feed')
 async def api_feed(request: Request):
+    check_localhost(request)
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
     create_table()
