@@ -20,7 +20,6 @@ from urllib.parse import urlparse
 from utils import *
 
 load_dotenv()
-DATABASE= 'articles.db'
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=os.getenv('SECRET'))
 templates = Jinja2Templates(directory="templates")
@@ -33,8 +32,16 @@ session = CachedSession(cache_req, backend='filesystem',allowable_methods=['GET'
 @app.get('/{lang}', include_in_schema=False)
 def api_home(request: Request, lang:str):
     conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()    
-    sql = "SELECT * FROM articles WHERE date(published) >= datetime('now','-24 hour')"
+    c = conn.cursor()
+    sql = """
+        SELECT a.* FROM articles a JOIN feeds f ON f.id = a.feed_id
+        WHERE a.id IN (
+            SELECT id FROM articles
+            WHERE feed_id = a.feed_id
+            ORDER BY published DESC
+            LIMIT 6
+        );
+    """
     # c.execute(sql, (date.today(),))  
     c.execute(sql)
     # print(sql, date.today(),lang)

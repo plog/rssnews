@@ -6,9 +6,12 @@
     <span class="navbar-toggler-icon"></span>
   </button>
   <a class="navbar-brand" href="#">{{date}}</a>
-  <!--div id="flagsContainer"></div-->
+
   <div class="collapse navbar-collapse" id="navbarTogglerDemo03">
-    <ul class="navbar-nav mt-0" id="flagsContainer">
+    <ul class="navbar-nav mt-0">
+      <li class="flagnav"><a href="/fr"><span class="fi fi-fr"></span></a></li>
+      <li class="flagnav"><a href="/en"><span class="fi fi-gb"></span></a></li>
+      <li class="flagnav"><a href="/id"><span class="fi fi-id"></span></a></li>
     </ul>
   </div>
 </nav>
@@ -20,9 +23,9 @@
         <div style="max-width: 100%;position: relative;">
 
           <figure class="wp-caption">
-            <img class="demo" id="{{article.image}}" alt="Image"  onerror="this.src='/static/no-img.png';"/>
+            <img class="demo" id="{{article.image}}" src="/static/images/{{article.image}}" alt="Image"  onerror="this.src='/static/no-img.png';"/>
             <figcaption class="wp-caption-text" id="txt_{{article.image}}">
-              <a href="{{article.link}}">{{article.title}}</a>
+              <a href="{{article.link}}" class="txtwhite">{{article.title}}</a>
             </figcaption>
           </figure>
 
@@ -36,37 +39,6 @@
 
 {% endfor%}
 </div>
-
-<script>
-// Array of language objects
-var languages = [
-  { name: "en",},
-  { name: "fr",},
-  { name: "id",},
-
-];
-
-function generateLanguageFlags(languages) {
-  var flagsHTML = "";
-
-  for (var i = 0; i < languages.length; i++) {
-    var language = languages[i];
-    var flagHTML = '<li class="nav-item">';
-    flagHTML += '<a href="/' + language.name + '">';
-    flagHTML += '<img class="flags" src="/static/flags/' + language.name + '.png" alt="' + language.name + '">';
-    flagHTML += '</a>';
-    flagHTML += '</li>';
-
-    flagsHTML += flagHTML;
-  }
-
-  return flagsHTML;
-}
-var container = document.getElementById("flagsContainer");
-container.innerHTML = generateLanguageFlags(languages);
-
-</script>
-
 
 {% endblock %}
 

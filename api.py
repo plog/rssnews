@@ -1,11 +1,12 @@
 import os
 import shutil
+import threading
 from app import app, Request,JSONResponse,APIRouter,HTTPException, Depends
 from datetime import datetime
 from datetime import timedelta
 from datetime import date
 from requests_cache import CachedSession
-import requests
+from starlette.concurrency import run_in_threadpool
 import pprint
 import dateutil.parser
 import feedparser
@@ -16,60 +17,17 @@ from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from utils import *
 
-DATABASE= 'articles.db'
 load_dotenv()
 pp = pprint.PrettyPrinter(indent=4,width=120)
 cache_req = os.getenv('REQUEST_CACHE')
 session = CachedSession(cache_req, backend='filesystem',allowable_methods=['GET', 'POST'],expire_after=timedelta(hours=1))
 api = APIRouter()
 
-rss_feed = [
-    # United States
-    "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml",
-    "https://feeds.washingtonpost.com/rss/world",
-    "https://rssfeeds.usatoday.com/usatoday-NewsTopStories",
-    "https://www.latimes.com/rss2.0.xml",
-    "https://feeds.a.dj.com/rss/RSSWorldNews.xml",
-    
-    # United Kingdom
-    "https://www.theguardian.com/world/rss",
-    "https://www.thetimes.co.uk/rss",
-    "https://www.ft.com/news-feed?format=rss",
-    
-    # Canada
-    "https://www.theglobeandmail.com/arc/outboundfeeds/rss/category/business/",
-    "https://www.thestar.com.my/rss/News",
-    "https://nationalpost.com/rss.xml",
-    "https://www.ledevoir.com/rss/manchettes.xml",
-    "https://www.lapresse.ca/manchettes/rss",
-    
-    # Australia
-    "https://www.smh.com.au/rss/feed.xml",
-    "https://www.theage.com.au/rss/feed.xml",
-    "https://www.theaustralian.com.au/feeds/rss",
-    "https://www.heraldsun.com.au/feeds/rss",
-    "https://www.brisbanetimes.com.au/rss/feed.xml",
-    
-    # Germany
-    "https://www.faz.net/rss/aktuell/",
-    "https://rss.sueddeutsche.de/rss/topthemen",
-    "https://www.welt.de/feeds/latest.rss",
-    "https://www.handelsblatt.com/contentexport/feed/top-themen",
-    "https://www.spiegel.de/schlagzeilen/tops/index.rss",
-    
-    # France
-    "https://www.lemonde.fr/rss/une.xml",
-    "https://www.lefigaro.fr/rss/figaro_actualites.xml",
-    "https://www.liberation.fr/arc/outboundfeeds/rss-all/?outputType=xml",
-    "https://feeds.leparisien.fr/leparisien/rss",
-    "https://services.lesechos.fr/rss/les-echos-monde.xml"
-]
-
 @api.get('/translate/{lang}')
 def api_translate(request: Request, lang: str):
-    res=[]
     conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()    
+    c = conn.cursor()
+    res=[]
     c.execute("SELECT * FROM articles WHERE date(published) >= datetime('now','-24 hour')")
     rows = c.fetchall()
     columns = [column[0] for column in c.description]  
@@ -83,83 +41,97 @@ def api_translate(request: Request, lang: str):
         id = row['id']
         title       = row['title']
         description = row['description']
-        pubdate = dateutil.parser.parse(row['published'])
-        print(id,title,description,lang)
+        pubdate     = dateutil.parser.parse(row['published'])
         value       = insert_translation(id,title,description,lang)
         title       = value[1]
         description = value[2]
         article = {
             "paper"      : row['paper'],
+            "feed_id"    : row['feed_id'],            
             "title"      : title,
             "image"      : row['image'],
             "link"       : row['link'],
             "description": description,
-            "published": pubdate.strftime("%d %b %Y %H:%M"),
+            "published"  : pubdate.strftime("%d %b %Y %H:%M"),
         }
         res.append(article)     
     conn.close()
     return res
 
 @api.get('/feed')
-def api_feed(request: Request):
+async def api_feed(request: Request):
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
     create_table()
     res = []
     titles = []
-    for feed in rss_feed:
+    c.execute("SELECT * FROM feeds")
+    rows = c.fetchall()
+    columns = [column[0] for column in c.description]      
+    for row in rows:
+        row = dict(zip(columns, row))
         from_cache = ''
         response = None
         try:
-            response = session.get(feed, timeout=10)
+            response = session.get(row['link'], timeout=10)
             from_cache = response.from_cache
         except Exception as exc:
-            print('Error:', feed)
+            print('Error:', row['link'])
             from_cache = exc
         if response == None:
             continue
         rss_xml = response.content.decode(response.apparent_encoding)
         rss = feedparser.parse(rss_xml)
-        articles_nbr = len(rss.entries)
-        print(str(from_cache).ljust(6), f'{articles_nbr:03d}',feed)
         for ent in rss.entries:
+            if ent.title in titles or not hasattr(ent, 'published'):
+                continue
             image = ''
+            image_file = ''
             description = ''
-            try:
-                description = ent.description
-            except:
-                pass            
-            try:
-                image = ent.media_content[0]['url']
-            except:
-                try:
-                    image = ent.enclosure
-                except:
-                    pass
-            if image == '':
-                continue
-            if ent.title in titles:
-                continue
-            soup    = BeautifulSoup(description)
-            paper   = urlparse(feed).netloc.replace('www.','').replace('rss.','')
+            paper   = urlparse(row['link']).netloc.replace('www.','').replace('rss.','')
             pubdate = dateutil.parser.parse(ent.published)
+            if hasattr(ent, 'media_thumbnail') and ent.media_thumbnail[0]:
+                image = ent.media_thumbnail[0]['url']
+            elif hasattr(ent, 'media_content') and ent.media_content[0]:
+                image = ent.media_content[0]['url']
+            elif hasattr(ent, 'enclosure'):
+                image = ent.enclosure
+            if hasattr(ent, 'description'):
+                description = ent.description
+                soup = BeautifulSoup(description,features="html.parser")
+                if image == '':
+                    img_tag = soup.find('img')
+                    if img_tag:
+                        image = img_tag['src']
+                description = soup.get_text()
+            
+            if image == '' and hasattr(ent, 'content'):
+                if  'value' in ent.content[0]:
+                    soup = BeautifulSoup(ent.content[0]['value'],features="html.parser")
+                    img_tag = soup.find('img')
+                    if img_tag:
+                        image = img_tag['src']     
 
-            image_file = os.path.basename(image).split("?")
-            image_path = 'static/images/'+image_file[0]
-            if not os.path.isfile(image_path):
-                img_res = requests.get(image, stream = True)
-                with open(image_path,'wb') as f:
-                    shutil.copyfileobj(img_res.raw, f)
+            if image != '':
+                image_file = os.path.basename(image).split("?")[0]
+                image_path = 'static/images/'+image_file
+                if not os.path.isfile(image_path):
+                    rst = await run_in_threadpool(download_image, image, image_path)
+
             article = {
                 "paper": paper,
+                "feed_id": row['id'],
                 "title": truncate_string(ent.title,100),
-                "image": image_file[0],
-                "description": truncate_string(soup.get_text()),
+                "image": image_file,
+                "description": truncate_string(description),
                 "link": ent.link,
                 "published": pubdate,
             }
-            insert_article(article)           
+            insert_article(article)
             res.append(article)
-            #result = client.collection("news").create(article)
-            # print(res)
+            if image != '':
+                update_article({"image": image_file,"link": ent.link})
+                print(paper, {"image": image_file,"link": ent.link})
     return res
 
 app.include_router(api, prefix="/api") 
