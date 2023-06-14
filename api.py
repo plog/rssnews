@@ -1,6 +1,5 @@
 import os
-import shutil
-import threading
+import ipaddress
 from app import app, Request,JSONResponse,APIRouter,HTTPException, Depends
 from datetime import datetime
 from datetime import timedelta
@@ -22,12 +21,18 @@ pp = pprint.PrettyPrinter(indent=4,width=120)
 cache_req = os.getenv('REQUEST_CACHE')
 session = CachedSession(cache_req, backend='filesystem',allowable_methods=['GET', 'POST'],expire_after=timedelta(hours=1))
 api = APIRouter()
-allowed_ips = {"127.0.0.1", "::1"}
 
 def check_localhost(request: Request):
-    client_host = request.client.host
-    if client_host != "127.0.0.1" and client_host != "::1":
-        raise HTTPException(status_code=403, detail="Access restricted to localhost")
+    allowed_ip_range_str = os.getenv("ALLOWED_IP_RANGE")
+    client_ip = request.client.host
+    if allowed_ip_range_str:
+        allowed_ip_ranges = allowed_ip_range_str.split(',')
+        for ip_range in allowed_ip_ranges:
+            if ipaddress.ip_address(client_ip) in ipaddress.ip_network(ip_range):
+                return
+        raise HTTPException(status_code=403, detail="Access restricted")
+    else:
+        raise HTTPException(status_code=500, detail="Allowed IP range not defined in .env")
 
 @api.get('/translate/{lang}')
 def api_translate(request: Request, lang: str):
