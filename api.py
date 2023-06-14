@@ -30,9 +30,9 @@ def check_localhost(request: Request):
         for ip_range in allowed_ip_ranges:
             if ipaddress.ip_address(client_ip) in ipaddress.ip_network(ip_range):
                 return
-        raise HTTPException(status_code=403, detail="Access restricted")
+        raise HTTPException(status_code=403, detail=client_ip+": Access restricted")
     else:
-        raise HTTPException(status_code=500, detail="Allowed IP range not defined in .env")
+        raise HTTPException(status_code=500, detail=client_ip+": Not defined in .env")
 
 @api.get('/translate/{lang}')
 def api_translate(request: Request, lang: str):
