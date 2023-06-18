@@ -26,6 +26,7 @@ class Deepl():
         else:
             data = {'text':search_term,'source_lang':source_lang.upper(),'target_lang':lang}
         response = session.post(url, headers=headers, data=data)
+        print(response)
         search = json.loads(response.text)
 
         try:

@@ -38,11 +38,9 @@ def api_home(request: Request, lang:str):
         WHERE a.id IN (
             SELECT id FROM articles
             WHERE feed_id = a.feed_id
-            ORDER BY published DESC
-            LIMIT 6
+            ORDER BY published DESC LIMIT 3
         );
     """
-    # c.execute(sql, (date.today(),))  
     c.execute(sql)
     # print(sql, date.today(),lang)
     columns = [column[0] for column in c.description]  

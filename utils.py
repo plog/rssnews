@@ -3,13 +3,30 @@ import os
 import shutil
 import requests
 import proxies.deeplcom as deeplcom
+import proxies.chatgpt as chatgpt
+from pathlib import Path
+from PIL import Image
 
 DATABASE= os.getenv('DATABASE')
+image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp']
+
 
 def download_image(image_url, image_path):
+    extension = os.path.splitext(image_url)[-1]
+    if extension.lower() not in ['','.jpg','.jpeg','.png','.gif']:
+        return 'no-img.png'
     img_res = requests.get(image_url, stream=True)
     with open(image_path, 'wb') as f:
         shutil.copyfileobj(img_res.raw, f)
+    image = Image.open(image_path)
+    image.thumbnail((400, 400))
+    file_name, file_extension = os.path.splitext(image_path)
+    if file_extension.lower() == '.png':
+        image = image.convert('RGB')
+    if file_extension.lower() == '':
+        image_path = file_name+'.jpg'
+    image.save(image_path)
+    return os.path.basename(image_path)
 
 def create_table():
     conn = sqlite3.connect(DATABASE)
@@ -58,8 +75,7 @@ def create_table():
 def insert_article(article):
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
-    query = '''INSERT INTO articles (paper, feed_id,title, image, description, link, published)
-               VALUES (?, ?, ?, ?, ?, ?, ?)'''
+    query = '''INSERT INTO articles (paper, feed_id,title, image, description, link, published) VALUES (?, ?, ?, ?, ?, ?, ?)'''
     values = (
         article['paper'],
         article['feed_id'],
@@ -87,16 +103,20 @@ def update_article(article):
 
 def insert_translation(article_id,title,description,lang):
     conn = sqlite3.connect(DATABASE)
-    trans = deeplcom.Deepl()
+    trans = chatgpt.ChatGPT()
     c = conn.cursor()
     query = '''DELETE FROM translations WHERE article_id = ?'''
     c.execute(query, (int(article_id),))
     conn.commit()
     query = '''INSERT INTO translations (article_id,title,description,language_code) VALUES (?,?,?,?)'''
+    trans_title = trans.translate(title,lang)
+    trans_descr = trans.translate(description,lang)
+    # print("TITLE",lang,title,trans_title)
+    # print("DESC",lang,description,trans_descr)
     values = (
         article_id,
-        trans.translate(title,'',lang,True)[0],
-        trans.translate(description,'',lang,True)[0],
+        trans_title,
+        trans_descr,
         lang,)
     try:
         c.execute(query, values)
@@ -107,6 +127,8 @@ def insert_translation(article_id,title,description,lang):
         pass
     conn.close()
     return None
+
+#def get_feed():
 
 def truncate_string(text, max_length=200):
     if len(text) <= max_length:

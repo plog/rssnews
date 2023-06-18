@@ -5,12 +5,11 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import date
 from requests_cache import CachedSession
-from starlette.concurrency import run_in_threadpool
 import pprint
 import dateutil.parser
 import feedparser
 from dotenv import load_dotenv
-import proxies.deeplcom as deeplcom
+import proxies.chatgpt as chatgpt
 import sqlite3
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
@@ -21,6 +20,7 @@ pp = pprint.PrettyPrinter(indent=4,width=120)
 cache_req = os.getenv('REQUEST_CACHE')
 session = CachedSession(cache_req, backend='filesystem',allowable_methods=['GET', 'POST'],expire_after=timedelta(hours=1))
 api = APIRouter()
+image_extensions = ['.jpg', '.jpeg', '.png', '.gif']
 
 def check_localhost(request: Request):
     allowed_ip_range_str = os.getenv("ALLOWED_IP_RANGE")
@@ -50,7 +50,7 @@ def api_translate(request: Request, lang: str):
         translation = c.fetchone()
         if translation:
             continue
-        id = row['id']
+        id          = row['id']
         title       = row['title']
         description = row['description']
         pubdate     = dateutil.parser.parse(row['published'])
@@ -71,7 +71,7 @@ def api_translate(request: Request, lang: str):
     return res
 
 @api.get('/feed')
-async def api_feed(request: Request):
+def api_feed(request: Request):
     check_localhost(request)
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
@@ -83,7 +83,6 @@ async def api_feed(request: Request):
     columns = [column[0] for column in c.description]      
     for row in rows:
         row = dict(zip(columns, row))
-        from_cache = ''
         response = None
         try:
             response = session.get(row['link'], timeout=10)
@@ -99,52 +98,67 @@ async def api_feed(request: Request):
             if ent.title in titles or not hasattr(ent, 'published'):
                 continue
             image = ''
-            image_file = ''
+            # image_file = ''
             description = ''
             paper   = urlparse(row['link']).netloc.replace('www.','').replace('rss.','')
             pubdate = dateutil.parser.parse(ent.published)
+
+            if hasattr(ent, 'links'):
+                for link in ent.links:
+                    if 'type' in link and 'image' in link['type']:
+                        image = link['href']
             if hasattr(ent, 'media_thumbnail') and ent.media_thumbnail[0]:
                 image = ent.media_thumbnail[0]['url']
-            elif hasattr(ent, 'media_content') and ent.media_content[0]:
-                image = ent.media_content[0]['url']
+            elif hasattr(ent, 'media_content'):
+                for media in ent.media_content:                       
+                    if 'url' in media:
+                        file_extension = os.path.splitext(media['url'])[1].lower()
+                        if file_extension in image_extensions:
+                            image = media['url']                       
+                    if 'image' in media:
+                        image = media['url']
+                    if 'type' in media and 'image' in media['type']:
+                        image = media['url']
             elif hasattr(ent, 'enclosure'):
                 image = ent.enclosure
             if hasattr(ent, 'description'):
                 description = ent.description
-                soup = BeautifulSoup(description,features="html.parser")
-                if image == '':
-                    img_tag = soup.find('img')
+                soup = BeautifulSoup(description,features="html.parser")                
+                if image == '':                    
+                    img_tag = soup.find('img')                     
                     if img_tag:
-                        image = img_tag['src']
-                description = soup.get_text()
-            
+                        image = img_tag['src'].split("?")[0]                       
+                description = soup.get_text()          
             if image == '' and hasattr(ent, 'content'):
-                if  'value' in ent.content[0]:
-                    soup = BeautifulSoup(ent.content[0]['value'],features="html.parser")
-                    img_tag = soup.find('img')
-                    if img_tag:
-                        image = img_tag['src']     
-
+                for content in ent.content:
+                    if  'value' in content:
+                        soup = BeautifulSoup(content['value'],features="html.parser")
+                        img_tag = soup.find('img')                  
+                        if img_tag:
+                            image = img_tag['src']
             if image != '':
                 image_file = os.path.basename(image).split("?")[0]
                 image_path = 'static/images/'+image_file
                 if not os.path.isfile(image_path):
-                    rst = await run_in_threadpool(download_image, image, image_path)
+                    image = download_image(image, image_path)
+                else:
+                    image = image_file
+            else:
+                image = 'no-img.png'
 
             article = {
                 "paper": paper,
                 "feed_id": row['id'],
                 "title": truncate_string(ent.title,100),
-                "image": image_file,
+                "image": image,
                 "description": truncate_string(description),
                 "link": ent.link,
                 "published": pubdate,
             }
             insert_article(article)
             res.append(article)
-            if image != '':
-                update_article({"image": image_file,"link": ent.link})
-                print(paper, {"image": image_file,"link": ent.link})
+            if image != '':                 
+                update_article({"image": image,"link": ent.link})
     return res
 
 app.include_router(api, prefix="/api") 
