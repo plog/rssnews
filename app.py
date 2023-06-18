@@ -35,11 +35,7 @@ def api_home(request: Request, lang:str):
     c = conn.cursor()
     sql = """
         SELECT a.* FROM articles a JOIN feeds f ON f.id = a.feed_id
-        WHERE a.id IN (
-            SELECT id FROM articles
-            WHERE feed_id = a.feed_id
-            ORDER BY published DESC LIMIT 3
-        );
+        WHERE score > 0
     """
     c.execute(sql)
     # print(sql, date.today(),lang)

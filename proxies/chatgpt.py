@@ -2,6 +2,7 @@
 import os,sys,pathlib, sqlite3
 import openai
 import ast
+import re
 
 parent = pathlib.Path(__file__).parent.parent.resolve()
 parent = os.path.abspath(parent)
@@ -26,14 +27,15 @@ language_dict = {
 class ChatGPT():
 
     def select(self,news):
-        prefix =  f'Sort (and select me the 4 most important) the following Python dict containing news headlines by impact on people\'s lives and environment: {str(news)}.'
-        prefix += """
-        For each news the dict must have the following structure:{"id":...,"title":...,score":...,"keywords":...}
-"score" is a 1 to 10 (10=big impact) to determine the potential impact on people's lives and the ecosystem.  
-"keyword" should be a short phrase capturing the essence of the news and its potential consequences. 
-Identify a keyword that best represents the news title and its impact. 
-Return ONLY the Python list of dict. DO NOT send explanation or any other text, I need to parse the result in Python
+        prefix = """
+ Sort the Python list of dict at the end of this prompt containing news headlines by impact on people\'s lives and environment.'
+ For each news the dict must have the following structure:{"id":...,score":...,"keywords":...}
+ "score" is a 1 to 10 (10=big impact) to determine the potential impact on people's lives and the ecosystem.  
+ "keyword" should be a short phrase capturing the essence of the news and its potential consequences. 
+ Identify a keyword that best represents the news title and its impact. 
+ Return ONLY the Python list of dict with the 5 most important news based on score above.
         """
+        prefix += pprint.pformat(news)
         print(150*'-')
         print(prefix)
         print(150*'-')
@@ -41,7 +43,7 @@ Return ONLY the Python list of dict. DO NOT send explanation or any other text, 
             model=engine,
             prompt=prefix,
             temperature=0.7,
-            max_tokens=900,
+            max_tokens=2000,
             frequency_penalty=0,
             presence_penalty=0
         )
@@ -50,7 +52,15 @@ Return ONLY the Python list of dict. DO NOT send explanation or any other text, 
         if choices := response.get('choices', []):
             if len(choices) > 0:
                 translated_text = choices[0]['text']
-        res = ast.literal_eval(translated_text.strip())
+        res = translated_text.strip()
+        pattern = r"\[.*?\]"
+        match = re.search(pattern, res, re.DOTALL)
+        if match:
+            res = eval(match.group())
+        else:
+            res = []        
+        print(res)
+        print(150*'+')
         return res
     
     def score(self,news):
