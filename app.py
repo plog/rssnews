@@ -34,8 +34,9 @@ def api_home(request: Request, lang:str):
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
     sql = """
-        SELECT a.* FROM articles a JOIN feeds f ON f.id = a.feed_id
-        WHERE score > 0
+        SELECT a.* FROM articles a 
+        JOIN feeds f ON f.id = a.feed_id
+        WHERE score > 5
     """
     c.execute(sql)
     # print(sql, date.today(),lang)
@@ -60,6 +61,7 @@ def api_home(request: Request, lang:str):
                 "description": description,
                 "link": row['link'],
                 "published": pubdate.strftime("%d %b %Y %H:%M"),
+                "score":row['score']
             }
         # print(article)
         res.append(article) 

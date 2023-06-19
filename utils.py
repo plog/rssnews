@@ -1,11 +1,13 @@
+#!/usr/bin/env python
 import sqlite3
-import os
+import os,sys
 import shutil
 import requests
+import pytz
 import pprint
 import feedparser
 import dateutil.parser
-from datetime import timedelta
+from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from requests_cache import CachedSession
 import proxies.deeplcom as deeplcom
@@ -19,7 +21,6 @@ image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp']
 pp = pprint.PrettyPrinter(indent=4,width=120)
 cache_req = os.getenv('REQUEST_CACHE')
 session = CachedSession(cache_req, backend='filesystem',allowable_methods=['GET', 'POST'],expire_after=timedelta(hours=1))
-
 
 def download_image(image_url, image_path):
     extension = os.path.splitext(image_url)[-1]
@@ -100,8 +101,8 @@ def insert_article(article):
     try:
         c.execute(query, values)
         conn.commit()
-    except sqlite3.IntegrityError:
-        pass
+    except Exception as exc:
+        print('Insert error:', exc)
     conn.close()
 
 def update_article(article):
@@ -151,33 +152,38 @@ def import_feed():
     columns = [column[0] for column in c.description]      
     for row in rows:
         row = dict(zip(columns, row))
+        paper   = urlparse(row['link']).netloc.replace('www.','').replace('rss.','')
         response = None
         try:
             response = session.get(row['link'], timeout=10)
             from_cache = response.from_cache
         except Exception as exc:
-            print('Error:', row['link'])
+            print('Error processing:', paper)
             from_cache = exc
         if response == None:
             continue
+
         rss_xml = response.content.decode(response.apparent_encoding)
         rss = feedparser.parse(rss_xml)
         for ent in rss.entries:
             if ent.title in titles or not hasattr(ent, 'published'):
                 continue
-            image = ''
-            # image_file = ''
-            description = ''
-            paper   = urlparse(row['link']).netloc.replace('www.','').replace('rss.','')
+            title = truncate_string(ent.title,100)
             pubdate = dateutil.parser.parse(ent.published)
+            if pubdate <= datetime.now(pytz.utc) - timedelta(hours=12):
+                continue
 
+            description = ''
+            image = ''
             if hasattr(ent, 'links'):
                 for link in ent.links:
                     if 'type' in link and 'image' in link['type']:
                         image = link['href']
-            elif hasattr(ent, 'media_thumbnail') and ent.media_thumbnail[0]:
+            
+            if image == '' and  hasattr(ent, 'media_thumbnail') and ent.media_thumbnail[0]:
                 image = ent.media_thumbnail[0]['url']
-            elif hasattr(ent, 'media_content'):
+            
+            if image == '' and hasattr(ent, 'media_content'):
                 for media in ent.media_content:                       
                     if 'url' in media:
                         file_extension = os.path.splitext(media['url'])[1].lower()
@@ -187,9 +193,11 @@ def import_feed():
                         image = media['url']
                     if 'type' in media and 'image' in media['type']:
                         image = media['url']
-            elif hasattr(ent, 'enclosure'):
+
+            if image == '' and hasattr(ent, 'enclosure'):
                 image = ent.enclosure
-            elif hasattr(ent, 'description'):
+            
+            if image == '' and hasattr(ent, 'description'):
                 description = ent.description
                 soup = BeautifulSoup(description,features="html.parser")                
                 if image == '':                    
@@ -197,42 +205,73 @@ def import_feed():
                     if img_tag:
                         image = img_tag['src'].split("?")[0]                       
                 description = soup.get_text()          
-            elif image == '' and hasattr(ent, 'content'):
+            
+            if image == '' and hasattr(ent, 'content'):
                 for content in ent.content:
                     if  'value' in content:
                         soup = BeautifulSoup(content['value'],features="html.parser")
                         img_tag = soup.find('img')                  
                         if img_tag:
                             image = img_tag['src']
-            # if image != '':
-            #     image_file = os.path.basename(image).split("?")[0]
-            #     image_path = 'static/images/'+image_file
-            #     if not os.path.isfile(image_path):
-            #         image = download_image(image, image_path)
-            #     else:
-            #         image = image_file
-            # else:
-            #     image = 'no-img.png'
 
             if image == '':
                 image = 'no-img.png'
+
             article = {
                 "paper": paper,
                 "feed_id": row['id'],
-                "title": truncate_string(ent.title,100),
+                "title": title,
                 "image": image,
                 "description": truncate_string(description),
                 "link": ent.link,
                 "published": pubdate,
             }
+            print('\n',paper,': ',pubdate,datetime.now(pytz.utc))            
+            pp.pprint(article)
             insert_article(article)
             res.append(article)
-            if image != '':                 
+
+            c.execute("SELECT * FROM articles WHERE title=? and score>0",(title,))
+            rows = c.fetchone()
+            if image != 'no-img.png' and row:
+                image_file = os.path.basename(image).split("?")[0]
+                image_path = 'static/images/'+image_file
+                if not os.path.isfile(image_path):
+                    image = download_image(image, image_path)
+                else:
+                    image = image_file
                 update_article({"image": image,"link": ent.link})
             conn.commit()
     conn.close()
     return res            
 
+def select_feed(feed_id):
+    gpt = chatgpt.ChatGPT()
+    conn = sqlite3.connect(DATABASE)
+    create_table()
+    c = conn.cursor()
+    sql = """
+        SELECT a.* FROM articles a 
+        JOIN feeds f ON f.id = a.feed_id
+        WHERE feed_id = ?
+        AND date(published) <= ?
+    """
+    c.execute(sql, (feed_id,datetime.now(pytz.utc) - timedelta(hours=12)))
+    rows = c.fetchall()
+    columns = [column[0] for column in c.description]
+    res = []
+    for row in rows:
+        row = dict(zip(columns, row))
+        article = {"id": row['id'],"title": row['title']}
+        res.append(article)
+    res  = gpt.select(res)
+    print(res)
+    for article in res:
+        sql = "UPDATE articles SET score=?, keywords=? WHERE id=?"
+        c.execute(sql, (int(article['score']), article['keywords'],int(article['id']),))
+    conn.commit()
+    conn.close()
+    return res
 
 def truncate_string(text, max_length=200):
     if len(text) <= max_length:
@@ -240,3 +279,23 @@ def truncate_string(text, max_length=200):
     else:
         truncated_text = text[:max_length].rsplit(' ', 1)[0]
         return truncated_text + '...'
+
+if __name__ == "__main__":
+    print("command line")
+    if len(sys.argv) < 2:
+        print("Usage: ./utils.py [feed]")
+        sys.exit(1)
+    arg1 = sys.argv[1]
+
+    # Get the feed
+    if arg1=='feed':
+        import_feed()
+
+    # What's "important" ?
+    if arg1=='gpt':
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        c.execute("SELECT id FROM feeds")
+        rows = c.fetchall()
+        for row in rows:
+            select_feed(row[0])

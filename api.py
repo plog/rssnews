@@ -70,34 +70,6 @@ def api_translate(request: Request, lang: str):
     conn.close()
     return res
 
-@api.get('/select/{feed}')
-def api_select(request: Request, feed: str):
-    gpt = chatgpt.ChatGPT()
-    conn = sqlite3.connect(DATABASE)
-    create_table()
-    c = conn.cursor()
-    sql = """
-        SELECT a.* FROM articles a 
-        JOIN feeds f ON f.id = a.feed_id
-        WHERE feed_id = ?
-    """
-    c.execute(sql, (feed,))
-    rows = c.fetchall()
-    columns = [column[0] for column in c.description]
-    res = []
-    for row in rows:
-        row = dict(zip(columns, row))
-        article = {"id": row['id'],"title": row['title']}
-        res.append(article)
-    res  = gpt.select(res)
-    print(res)
-    for article in res:
-        sql = "UPDATE articles SET score=?, keywords=? WHERE id=?"
-        c.execute(sql, (int(article['score']), article['keywords'],int(article['id']),))
-    conn.commit()
-    conn.close()
-    return res
-
 @api.get('/feed')
 def api_feed(request: Request):
     check_localhost(request)

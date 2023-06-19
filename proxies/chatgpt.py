@@ -28,10 +28,11 @@ class ChatGPT():
 
     def select(self,news):
         prefix = """
- Sort the Python list of dict at the end of this prompt containing news headlines by impact on people\'s lives and environment.'
+ Sort the Python list of dict at the end of this prompt containing news headlines by impact on society.'
  For each news the dict must have the following structure:{"id":...,score":...,"keywords":...}
- "score" is a 1 to 10 (10=big impact) to determine the potential impact on people's lives and the ecosystem.  
- "keyword" should be a short phrase capturing the essence of the news and its potential consequences. 
+ "score" is a 1 to 10 (10=big impact) to determine the potential impact on people's lives, the ecosystem and the society.
+ Wars, geopolitical tensions, large financial crisis or people dying always get 10.
+ "keyword" should be a string of keywords separated by a comma capturing the essence of the news and its potential consequences. 
  Identify a keyword that best represents the news title and its impact. 
  Return ONLY the Python list of dict with the 5 most important news based on score above.
         """
